@@ -18,7 +18,7 @@ function getDefaultRoute(role?: string): string {
   return '/employee';
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
 
