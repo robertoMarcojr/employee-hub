@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -10,4 +5,195 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum ProjectStatus {
+  planning
+  active
+  completed
+  archived
+}
+
+enum ProjectRole {
+  manager
+  member
+  viewer
+}
+
+enum TokenStatus {
+  open
+  in_progress
+  done
+  cancelled
+}
+
+enum UserRole {
+  admin
+  executive
+  manager
+  employee
+}
+
+enum TokenPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  avatarUrl    String?  @map("avatar_url")
+  role         UserRole @default(employee)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  createdProjects Project[]       @relation("CreatedProjects")
+  tags            UserTag[]
+  projectMembers  ProjectMember[]
+  raisedTokens    Token[]       @relation("RaisedTokens")
+  assignedTokens  Token[]       @relation("AssignedTokens")
+  requirements    Requirement[]
+  messages        Message[]
+
+  @@map("users")
+}
+
+model Tag {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  color       String
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users       UserTag[]
+  permissions Permission[]
+
+  @@map("tags")
+}
+
+model UserTag {
+  userId String @map("user_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tagId])
+  @@map("user_tags")
+}
+
+model Permission {
+  id        String  @id @default(uuid()) @db.Uuid
+  tagId     String  @map("tag_id") @db.Uuid
+  resource  String
+  canView   Boolean @default(false) @map("can_view")
+  canCreate Boolean @default(false) @map("can_create")
+  canEdit   Boolean @default(false) @map("can_edit")
+  canDelete Boolean @default(false) @map("can_delete")
+  canAssign Boolean @default(false) @map("can_assign")
+
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, resource])
+  @@map("permissions")
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  status      ProjectStatus @default(planning)
+  createdBy   String        @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  creator      User            @relation("CreatedProjects", fields: [createdBy], references: [id])
+  members      ProjectMember[]
+  requirements Requirement[]
+  messages     Message[]
+  tokens       Token[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id         String       @id @default(uuid()) @db.Uuid
+  projectId  String       @map("project_id") @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  role       ProjectRole  @default(member)
+  assignedAt DateTime     @default(now()) @map("assigned_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Requirement {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  title       String
+  description String?
+  link        String
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+
+  @@map("requirements")
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("messages")
+}
+
+model Token {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  title       String
+  description String?
+  status      TokenStatus   @default(open)
+  priority    TokenPriority @default(medium)
+  raisedBy    String        @map("raised_by") @db.Uuid
+  assignedTo  String?       @map("assigned_to") @db.Uuid
+  startedAt   DateTime?     @map("started_at")
+  completedAt DateTime?     @map("completed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  raiser       User         @relation("RaisedTokens", fields: [raisedBy], references: [id])
+  assignee     User?        @relation("AssignedTokens", fields: [assignedTo], references: [id])
+  tokenLinks   TokenLink[]
+
+  @@map("tokens")
+}
+
+model TokenLink {
+  id      String @id @default(uuid()) @db.Uuid
+  tokenId String @map("token_id") @db.Uuid
+  title   String
+  url     String
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@map("token_links")
 }

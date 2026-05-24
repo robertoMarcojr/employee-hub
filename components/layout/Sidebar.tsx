@@ -3,18 +3,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Layers, Briefcase, ShieldAlert, LogOut, Plus } from 'lucide-react';
-import { useApp } from '@/lib/app-context';
+import { LogOut, Users, Tags } from 'lucide-react';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { logout } from '@/lib/store/authSlice';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { currentPersona, handleChangePersona, handleLogout, setIsCreateModalOpen } = useApp();
+  const dispatch = useAppDispatch();
 
-  const navItems = [
-    { href: '/dashboard', label: 'Global Overview', icon: LayoutDashboard },
-    { href: '/projects/q-core-migration', label: 'Quantum Migration Detail', icon: Layers },
-    { href: '/manager', label: 'Team Workloads', icon: Briefcase },
-    { href: '/executive', label: 'Exec Suite / Admin', icon: ShieldAlert },
+  const adminItems = [
+    { href: '/admin/users', label: 'Employees', icon: Users },
+    { href: '/admin/tags', label: 'Tags', icon: Tags },
   ];
 
   return (
@@ -30,8 +29,9 @@ export default function Sidebar() {
         <div className="w-full h-[1px] bg-stone-200 mt-4"></div>
       </div>
 
-      <nav className="flex-grow space-y-1">
-        {navItems.map((item) => {
+      <div className="flex-grow">
+        <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest px-3 mb-1">Administration</p>
+        {adminItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname.startsWith(item.href);
           return (
@@ -49,37 +49,16 @@ export default function Sidebar() {
             </Link>
           );
         })}
-      </nav>
+      </div>
 
-      <div className="mt-auto pt-6 border-t border-stone-200/60 space-y-3">
+      <div className="mt-auto pt-6 border-t border-stone-200/60">
         <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="w-full flex items-center justify-center gap-2 bg-editorial-wine hover:bg-stone-900 text-white py-2.5 px-4 rounded-md font-bold transition-all text-xs tracking-wider uppercase border border-stone-950/10"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Project</span>
-        </button>
-
-        <button
-          onClick={handleLogout}
+          onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); dispatch(logout()); }}
           className="w-full flex items-center gap-3 px-3 py-2 text-stone-500 hover:text-red-700 transition-colors rounded-md text-xs font-medium"
         >
           <LogOut className="w-3.5 h-3.5 text-stone-400" />
           <span>Logout</span>
         </button>
-
-        <div className="mt-4 p-3 bg-white border border-stone-200 rounded-md flex items-center gap-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-          <div className="relative">
-            <img alt={currentPersona.name} className="w-8 h-8 rounded-full border border-stone-200" referrerPolicy="no-referrer" src={currentPersona.avatarUrl} />
-            {currentPersona.checkedIn && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-600 rounded-full border border-white animate-pulse"></span>
-            )}
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-xs font-bold text-stone-900 truncate leading-tight">{currentPersona.name}</p>
-            <p className="text-[9px] text-stone-500 font-semibold truncate uppercase tracking-wider font-sans mt-0.5">{currentPersona.title}</p>
-          </div>
-        </div>
       </div>
     </aside>
   );

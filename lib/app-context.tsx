@@ -35,7 +35,7 @@ interface AppContextType {
   handleCompleteToken: (tokenId: string) => void;
   handleTakeToken: (tokenId: string) => void;
   handleLoginSuccess: (email: string) => void;
-  handleLogout: () => void;
+  handleLogout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -107,19 +107,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [currentPersona]
   );
 
-  const handleLoginSuccess = useCallback((email: string) => {
-    const formatted = email.toLowerCase();
+  const handleLoginSuccess = useCallback((_email: string) => {
     setIsLoggedIn(true);
-    if (formatted.includes('james')) {
-      setCurrentPersonaId('james');
-    } else if (formatted.includes('marcus')) {
-      setCurrentPersonaId('marcus');
-    } else {
-      setCurrentPersonaId('alex');
-    }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     setIsLoggedIn(false);
     setSearchQuery('');
   }, []);

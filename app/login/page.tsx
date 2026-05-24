@@ -1,29 +1,23 @@
 'use client';
 
-import { AppProvider, useApp } from '@/lib/app-context';
 import LoginView from '@/components/LoginView';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAppSelector } from '@/lib/store/hooks';
 
-function LoginPageInner() {
-  const { isLoggedIn } = useApp();
+export default function LoginPage() {
+  const isLoggedIn = useAppSelector(s => s.auth.isLoggedIn);
+  const user = useAppSelector(s => s.auth.user);
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoggedIn) {
-      router.push('/dashboard');
+    if (isLoggedIn && user) {
+      const target = user.role === 'admin' ? '/admin/users' : user.role === 'executive' ? '/executive' : '/employee';
+      router.push(target);
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, user, router]);
 
   if (isLoggedIn) return null;
 
   return <LoginView />;
-}
-
-export default function LoginPage() {
-  return (
-    <AppProvider>
-      <LoginPageInner />
-    </AppProvider>
-  );
 }
