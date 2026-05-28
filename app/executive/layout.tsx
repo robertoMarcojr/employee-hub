@@ -90,7 +90,7 @@ export default function ExecutiveLayout({ children }: { children: React.ReactNod
             </Link>
           )}
           <button
-            onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); dispatch(logout()); }}
+            onClick={() => { navigator.sendBeacon('/api/auth/logout', '{}'); dispatch(logout()); window.location.href = '/login'; }}
             className="w-full flex items-center gap-3 px-3 py-2 text-stone-500 hover:text-red-700 transition-colors rounded-md text-xs font-medium"
           >
             <LogOut className="w-3.5 h-3.5 text-stone-400" />
