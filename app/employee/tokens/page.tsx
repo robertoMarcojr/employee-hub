@@ -1,28 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import { Clock, CheckCircle, Play, Pause, Plus, Filter, ArrowUpRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, CheckCircle, Play, Pause, Plus, X } from 'lucide-react';
 
 interface Token {
   id: string;
   title: string;
   description: string;
-  project: string;
+  project: { name: string; id?: string };
   status: 'open' | 'in_progress' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  assignee?: string;
+  assignedTo?: string | null;
 }
 
-const initialTokens: Token[] = [
-  { id: '1', title: 'Refactor API Middleware', description: 'Optimize request handling for high-concurrency clusters', project: 'PRJ-242: HYPERION', status: 'in_progress', priority: 'high', assignee: 'Me' },
-  { id: '2', title: 'Accessibility Audit', description: 'Verify WCAG 2.1 compliance across active design variables', project: 'PRJ-109: CORE UI', status: 'open', priority: 'medium' },
-  { id: '3', title: 'Database Connection Pooling', description: 'Implement connection pooling for production database tier', project: 'PRJ-242: HYPERION', status: 'done', priority: 'high' },
-  { id: '4', title: 'Design Token Migration', description: 'Migrate legacy color tokens to new design system', project: 'PRJ-109: CORE UI', status: 'open', priority: 'low' },
-  { id: '5', title: 'Unit Test Coverage', description: 'Achieve 80% unit test coverage on core services', project: 'PRJ-242: HYPERION', status: 'in_progress', priority: 'medium', assignee: 'Me' },
-];
+interface Project {
+  id: string;
+  name: string;
+}
 
 export default function EmployeeTokensPage() {
-  const [tokens, setTokens] = useState(initialTokens);
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ projectId: '', title: '', description: '', priority: 'medium' });
+
+  const fetchTokens = () => {
+    fetch('/api/employee/tokens')
+      .then(res => res.json())
+      .then(data => { setTokens(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchTokens();
+    fetch('/api/employee/projects').then(r => r.json()).then(setProjects).catch(() => {});
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.projectId || !form.title) return;
+    await fetch('/api/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    });
+    setShowCreate(false);
+    setForm({ projectId: '', title: '', description: '', priority: 'medium' });
+    fetchTokens();
+  };
 
   const columns = [
     { key: 'open' as const, label: 'Open', color: 'bg-stone-400' },
@@ -30,11 +56,39 @@ export default function EmployeeTokensPage() {
     { key: 'done' as const, label: 'Done', color: 'bg-emerald-600' },
   ];
 
-  const moveToken = (id: string, newStatus: Token['status']) => {
+  const moveToken = async (id: string, newStatus: Token['status']) => {
     setTokens(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    await fetch(`/api/tokens/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-serif font-bold text-stone-900">My Tokens</h2>
+            <p className="text-xs text-stone-500 mt-1">Kanban board — drag or click to update status</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-stone-50 border border-stone-200 rounded-lg min-h-[300px] animate-pulse">
+              <div className="px-4 py-3 border-b border-stone-200">
+                <div className="h-4 bg-stone-200 rounded w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <>
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
@@ -42,11 +96,7 @@ export default function EmployeeTokensPage() {
           <p className="text-xs text-stone-500 mt-1">Kanban board — drag or click to update status</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-3 py-2 border border-stone-200 rounded-md text-xs font-bold text-stone-600 hover:bg-white transition-colors flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Filter</span>
-          </button>
-          <button className="px-3 py-2 bg-editorial-wine text-white rounded-md text-xs font-bold hover:bg-stone-900 transition-colors flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="px-3 py-2 bg-editorial-wine text-white rounded-md text-xs font-bold hover:bg-stone-900 transition-colors flex items-center gap-1.5">
             <Plus className="w-3.5 h-3.5" />
             <span>New Token</span>
           </button>
@@ -57,7 +107,7 @@ export default function EmployeeTokensPage() {
         {columns.map(col => (
           <div key={col.key} className="bg-stone-50 border border-stone-200 rounded-lg">
             <div className="px-4 py-3 border-b border-stone-200 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${col.color}`}></span>
+              <span className={`w-2 h-2 rounded-full ${col.color}`} />
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-700">{col.label}</h3>
               <span className="ml-auto text-[10px] font-bold text-stone-400 bg-white border border-stone-200 px-1.5 py-0.5 rounded">{tokens.filter(t => t.status === col.key).length}</span>
             </div>
@@ -70,14 +120,14 @@ export default function EmployeeTokensPage() {
                       token.priority === 'high' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                       'bg-stone-50 text-stone-500 border border-stone-200'
                     }`}>{token.priority}</span>
-                    {token.assignee && (
+                    {token.assignedTo && (
                       <span className="text-[9px] font-bold text-editorial-wine">Assigned</span>
                     )}
                   </div>
                   <h4 className="text-sm font-serif font-bold text-stone-900 mb-1">{token.title}</h4>
                   <p className="text-[11px] text-stone-500 leading-relaxed mb-3 line-clamp-2">{token.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-mono text-stone-400">{token.project}</span>
+                    <span className="text-[9px] font-mono text-stone-400">{token.project.name}</span>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {token.status === 'open' && (
                         <button onClick={() => moveToken(token.id, 'in_progress')} className="p-1.5 rounded bg-editorial-gold/10 text-editorial-gold hover:bg-editorial-gold hover:text-white transition-colors" title="Start">
@@ -114,5 +164,50 @@ export default function EmployeeTokensPage() {
         ))}
       </div>
     </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-[99] flex items-center justify-center p-4">
+          <div className="bg-editorial-paper w-full max-w-md rounded-lg border border-stone-300 shadow-xl overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-editorial-wine to-editorial-gold"></div>
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+              <h2 className="text-md font-serif font-bold">New Token</h2>
+              <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-stone-200 rounded transition-colors text-stone-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="p-5 space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Project *</label>
+                <select required value={form.projectId} onChange={e => setForm(p => ({ ...p, projectId: e.target.value }))} className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white">
+                  <option value="">Select project...</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Title *</label>
+                <input type="text" required value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Description</label>
+                <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white resize-none h-20" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Priority</label>
+                <select value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))} className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 border border-stone-200 rounded-md text-stone-600 bg-white hover:bg-stone-100">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-editorial-wine hover:bg-stone-900 text-white rounded-md text-[10px] font-bold uppercase tracking-wider">Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

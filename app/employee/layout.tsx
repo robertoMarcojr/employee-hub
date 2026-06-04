@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { LayoutDashboard, KanbanSquare, FolderKanban, User, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, KanbanSquare, FolderKanban, User, LogOut, Shield, Settings } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { logout } from '@/lib/store/authSlice';
 import Spinner from '@/components/Spinner';
@@ -11,8 +11,12 @@ import Spinner from '@/components/Spinner';
 const navItems = [
   { href: '/employee', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/employee/tokens', label: 'My Tokens', icon: KanbanSquare },
-  { href: '/employee/projects', label: 'My Projects', icon: FolderKanban },
+  { href: '/employee/projects', label: 'My Projects', icon: FolderKanban, exact: true },
   { href: '/employee/profile', label: 'Profile', icon: User },
+];
+
+const managerNavItems = [
+  { href: '/employee/projects/manage', label: 'Manage Projects', icon: Settings },
 ];
 
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
@@ -77,6 +81,30 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
               </Link>
             );
           })}
+
+          {(user?.role === 'manager' || user?.role === 'executive' || user?.role === 'admin') && (
+            <>
+              <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest px-3 mt-4 mb-1">Management</p>
+              {managerNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all text-xs font-medium border-l-2 ${
+                      isActive
+                        ? 'bg-white text-stone-900 border-editorial-wine font-bold shadow-sm'
+                        : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-editorial-wine' : 'text-stone-400'}`} />
+                    <span className="tracking-wide">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </div>
 
         <div className="mt-auto pt-6 border-t border-stone-200/60 space-y-3">
@@ -97,9 +125,9 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       </div>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-stone-50 h-14 border-t border-stone-200 flex items-center justify-around z-50 px-2 shadow-lg">
-        {navItems.map((item) => {
+        {[...navItems, ...((user?.role === 'manager' || user?.role === 'executive' || user?.role === 'admin') ? managerNavItems : [])].map((item) => {
           const Icon = item.icon;
-          const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+          const isActive = (item as any).exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

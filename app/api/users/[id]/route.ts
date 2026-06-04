@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         email: true,
         phone: true,
         avatarUrl: true,
+        role: true,
         isActive: true,
         createdAt: true,
         tags: {
@@ -40,13 +41,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { name, email, phone, password, isActive } = await request.json();
+    const { name, email, phone, password, isActive, role } = await request.json();
 
     const data: any = {};
     if (name !== undefined) data.name = name;
     if (email !== undefined) data.email = email || null;
     if (phone !== undefined) data.phone = phone || null;
     if (isActive !== undefined) data.isActive = isActive;
+    if (role !== undefined) data.role = role;
     if (password) {
       const { hashPassword } = await import('@/lib/auth');
       data.passwordHash = await hashPassword(password);
@@ -60,6 +62,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name: true,
         email: true,
         phone: true,
+        role: true,
         isActive: true,
         createdAt: true,
       },

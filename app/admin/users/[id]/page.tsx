@@ -16,6 +16,7 @@ interface User {
   name: string;
   email: string | null;
   phone: string | null;
+  role: string;
   isActive: boolean;
   tags: Tag[];
 }
@@ -26,7 +27,7 @@ export default function EditUserPage() {
   const [user, setUser] = useState<User | null>(null);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', role: 'employee' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function EditUserPage() {
     ]).then(([userData, tagsData]) => {
       setUser(userData);
       setAllTags(tagsData);
-      setForm({ name: userData.name, email: userData.email || '', phone: userData.phone || '', password: '' });
+      setForm({ name: userData.name, email: userData.email || '', phone: userData.phone || '', password: '', role: userData.role || 'employee' });
       setLoading(false);
     });
   }, [id]);
@@ -44,7 +45,7 @@ export default function EditUserPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const body: any = { name: form.name, email: form.email || null, phone: form.phone || null };
+    const body: any = { name: form.name, email: form.email || null, phone: form.phone || null, role: form.role };
     if (form.password) body.password = form.password;
     await fetch(`/api/users/${id}`, {
       method: 'PUT',
@@ -99,6 +100,16 @@ export default function EditUserPage() {
         <div className="space-y-1">
           <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">New Password (leave blank to keep current)</label>
           <input type="password" className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Role</label>
+          <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2 border border-stone-250 rounded-md outline-none focus:border-editorial-wine text-stone-900 bg-white">
+            <option value="employee">Employee</option>
+            <option value="manager">Manager</option>
+            <option value="executive">Executive</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
 
         <div className="pt-4 border-t border-stone-200">

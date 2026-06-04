@@ -33,28 +33,45 @@ async function upsertTag(name: string, color: string, description: string, permi
     });
   }
 
-  console.log(`Tag "${name}" synced with ${Object.keys(permissions).length} resource permissions`);
   return tag;
 }
 
 async function main() {
   const passwordHash = await hashPassword('admin123');
 
-  await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: { email: 'admin@employeehub.com' },
     update: { role: 'admin' },
     create: { email: 'admin@employeehub.com', name: 'Admin', passwordHash, isActive: true, role: 'admin' },
   });
 
-  await prisma.user.upsert({
+  const employee = await prisma.user.upsert({
     where: { email: 'employee@employeehub.com' },
     update: {},
-    create: { email: 'employee@employeehub.com', name: 'Employee', passwordHash, isActive: true, role: 'employee' },
+    create: { email: 'employee@employeehub.com', name: 'Alex Rivera', passwordHash, isActive: true, role: 'employee' },
   });
 
-  console.log('Users created: admin@employeehub.com / admin123 (admin), employee@employeehub.com / admin123 (employee)');
+  const sarah = await prisma.user.upsert({
+    where: { email: 'sarah@employeehub.com' },
+    update: {},
+    create: { email: 'sarah@employeehub.com', name: 'Sarah Chen', passwordHash, isActive: true, role: 'manager' },
+  });
 
-  await Promise.all([
+  const marcus = await prisma.user.upsert({
+    where: { email: 'marcus@employeehub.com' },
+    update: {},
+    create: { email: 'marcus@employeehub.com', name: 'Marcus Webb', passwordHash, isActive: true, role: 'manager' },
+  });
+
+  const elena = await prisma.user.upsert({
+    where: { email: 'elena@employeehub.com' },
+    update: {},
+    create: { email: 'elena@employeehub.com', name: 'Elena Vasquez', passwordHash, isActive: true, role: 'employee' },
+  });
+
+  console.log('Users created');
+
+  const [ceoTag, mgrTag, devTag, viewerTag, designTag] = await Promise.all([
     upsertTag('CEO', '#722f37', 'Full system access', {
       users:    { canView: true, canCreate: true, canEdit: true, canDelete: true, canAssign: true },
       projects: { canView: true, canCreate: true, canEdit: true, canDelete: true, canAssign: true },
@@ -79,32 +96,128 @@ async function main() {
       tokens:   { canView: true, canCreate: false, canEdit: false, canDelete: false, canAssign: false },
       tags:     { canView: false, canCreate: false, canEdit: false, canDelete: false, canAssign: false },
     }),
+    upsertTag('Design', '#7c3aed', 'Design team access', {
+      users:    { canView: true, canCreate: false, canEdit: false, canDelete: false, canAssign: false },
+      projects: { canView: true, canCreate: false, canEdit: true, canDelete: false, canAssign: false },
+      tokens:   { canView: true, canCreate: true, canEdit: true, canDelete: false, canAssign: false },
+      tags:     { canView: false, canCreate: false, canEdit: false, canDelete: false, canAssign: false },
+    }),
   ]);
 
-  const tagCount = await prisma.tag.count();
-  const permCount = await prisma.permission.count();
-  console.log(`\n${tagCount} tags, ${permCount} permission rules`);
-
-  const admin = await prisma.user.findUnique({ where: { email: 'admin@employeehub.com' } });
-  const employee = await prisma.user.findUnique({ where: { email: 'employee@employeehub.com' } });
-  const ceoTag = await prisma.tag.findUnique({ where: { name: 'CEO' } });
-  const devTag = await prisma.tag.findUnique({ where: { name: 'Developer' } });
-
   if (admin && ceoTag) {
-    await prisma.userTag.upsert({
-      where: { userId_tagId: { userId: admin.id, tagId: ceoTag.id } },
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: admin.id, tagId: ceoTag.id } }, update: {}, create: { userId: admin.id, tagId: ceoTag.id } });
+  }
+  if (sarah && mgrTag) {
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: sarah.id, tagId: mgrTag.id } }, update: {}, create: { userId: sarah.id, tagId: mgrTag.id } });
+  }
+  if (marcus && mgrTag) {
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: marcus.id, tagId: mgrTag.id } }, update: {}, create: { userId: marcus.id, tagId: mgrTag.id } });
+  }
+  if (employee && devTag) {
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: employee.id, tagId: devTag.id } }, update: {}, create: { userId: employee.id, tagId: devTag.id } });
+  }
+  if (elena && devTag) {
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: elena.id, tagId: devTag.id } }, update: {}, create: { userId: elena.id, tagId: devTag.id } });
+  }
+  if (elena && designTag) {
+    await prisma.userTag.upsert({ where: { userId_tagId: { userId: elena.id, tagId: designTag.id } }, update: {}, create: { userId: elena.id, tagId: designTag.id } });
+  }
+
+  console.log('Tags and user-tag assignments created');
+
+  const now = new Date();
+  const hyperion = await prisma.project.upsert({
+    where: { id: 'seed-project-hyperion' },
+    update: {},
+    create: {
+      id: 'seed-project-hyperion',
+      name: 'Project Hyperion',
+      description: 'Enterprise-grade cloud distribution engine for optimized microservice coordination and edge replication.',
+      status: 'active',
+      createdBy: sarah.id,
+      createdAt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const coreUI = await prisma.project.upsert({
+    where: { id: 'seed-project-core-ui' },
+    update: {},
+    create: {
+      id: 'seed-project-core-ui',
+      name: 'Core Design System',
+      description: 'Standardizing UI patterns across all products including light/dark templates and WCAG 2.1 auditing.',
+      status: 'active',
+      createdBy: marcus.id,
+      createdAt: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const employeeHub = await prisma.project.upsert({
+    where: { id: 'seed-project-employee-hub' },
+    update: {},
+    create: {
+      id: 'seed-project-employee-hub',
+      name: 'Employee Hub Platform',
+      description: 'Internal workforce management platform replacing legacy Excel-based tracking.',
+      status: 'planning',
+      createdBy: admin.id,
+      createdAt: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  console.log('Projects created');
+
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: hyperion.id, userId: sarah.id } }, update: {}, create: { projectId: hyperion.id, userId: sarah.id, role: 'manager' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: hyperion.id, userId: employee.id } }, update: {}, create: { projectId: hyperion.id, userId: employee.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: hyperion.id, userId: marcus.id } }, update: {}, create: { projectId: hyperion.id, userId: marcus.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: hyperion.id, userId: elena.id } }, update: {}, create: { projectId: hyperion.id, userId: elena.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: coreUI.id, userId: marcus.id } }, update: {}, create: { projectId: coreUI.id, userId: marcus.id, role: 'manager' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: coreUI.id, userId: employee.id } }, update: {}, create: { projectId: coreUI.id, userId: employee.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: coreUI.id, userId: elena.id } }, update: {}, create: { projectId: coreUI.id, userId: elena.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: employeeHub.id, userId: admin.id } }, update: {}, create: { projectId: employeeHub.id, userId: admin.id, role: 'manager' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: employeeHub.id, userId: employee.id } }, update: {}, create: { projectId: employeeHub.id, userId: employee.id, role: 'member' } });
+  await prisma.projectMember.upsert({ where: { projectId_userId: { projectId: employeeHub.id, userId: sarah.id } }, update: {}, create: { projectId: employeeHub.id, userId: sarah.id, role: 'member' } });
+
+  console.log('Project members created');
+
+  const tokensData = [
+    { projectId: hyperion.id, title: 'Refactor API Middleware', description: 'Optimize request handling for high-concurrency clusters in the authentication service pipeline.', status: 'in_progress' as const, priority: 'high' as const, raisedBy: sarah.id, assignedTo: employee.id, startedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+    { projectId: hyperion.id, title: 'Implement API Throttling for Batch-Z', description: 'Protect regional node boundaries with custom dynamic IP leak parameters.', status: 'open' as const, priority: 'high' as const, raisedBy: sarah.id },
+    { projectId: hyperion.id, title: 'WebSocket Connection Heartbeats', description: 'Maintain stable continuous sync loops without standard reconnect crashes.', status: 'in_progress' as const, priority: 'medium' as const, raisedBy: marcus.id, assignedTo: elena.id, startedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000) },
+    { projectId: hyperion.id, title: 'Database Connection Pooling', description: 'Implement connection pooling for production database tier.', status: 'done' as const, priority: 'high' as const, raisedBy: sarah.id, assignedTo: employee.id, startedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) },
+    { projectId: hyperion.id, title: 'Unit Test Coverage', description: 'Achieve 80% unit test coverage on core services.', status: 'in_progress' as const, priority: 'medium' as const, raisedBy: marcus.id, assignedTo: employee.id, startedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+    { projectId: coreUI.id, title: 'Accessibility Audit', description: 'Verify WCAG 2.1 compliance across active design variables.', status: 'open' as const, priority: 'medium' as const, raisedBy: marcus.id },
+    { projectId: coreUI.id, title: 'Design Token Migration', description: 'Migrate legacy color tokens to new design system.', status: 'open' as const, priority: 'low' as const, raisedBy: marcus.id },
+    { projectId: coreUI.id, title: 'Component Library Documentation', description: 'Document all components with usage examples and prop definitions.', status: 'done' as const, priority: 'medium' as const, raisedBy: elena.id, assignedTo: employee.id, startedAt: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000) },
+    { projectId: coreUI.id, title: 'Dark Mode Implementation', description: 'Implement dark mode variant for all core components.', status: 'open' as const, priority: 'high' as const, raisedBy: elena.id },
+    { projectId: employeeHub.id, title: 'User Authentication Flow', description: 'Implement login/register with email or phone.', status: 'open' as const, priority: 'high' as const, raisedBy: admin.id },
+    { projectId: employeeHub.id, title: 'Role-Based Access Control', description: 'Implement RBAC with tag-based permission system.', status: 'open' as const, priority: 'high' as const, raisedBy: admin.id },
+    { projectId: employeeHub.id, title: 'Dashboard Wireframes', description: 'Create wireframes for employee and executive dashboards.', status: 'open' as const, priority: 'medium' as const, raisedBy: sarah.id },
+  ];
+
+  for (const t of tokensData) {
+    await prisma.token.upsert({
+      where: { id: `seed-token-${t.title.toLowerCase().replace(/\s+/g, '-')}` },
       update: {},
-      create: { userId: admin.id, tagId: ceoTag.id },
+      create: {
+        id: `seed-token-${t.title.toLowerCase().replace(/\s+/g, '-')}`,
+        projectId: t.projectId,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        raisedBy: t.raisedBy,
+        assignedTo: t.assignedTo || null,
+        startedAt: t.startedAt || null,
+        completedAt: t.completedAt || null,
+      },
     });
   }
 
-  if (employee && devTag) {
-    await prisma.userTag.upsert({
-      where: { userId_tagId: { userId: employee.id, tagId: devTag.id } },
-      update: {},
-      create: { userId: employee.id, tagId: devTag.id },
-    });
-  }
+  const tokenCount = await prisma.token.count();
+  const projectCount = await prisma.project.count();
+  const memberCount = await prisma.projectMember.count();
+  console.log(`\n${projectCount} projects, ${memberCount} project members, ${tokenCount} tokens`);
 }
 
 main()

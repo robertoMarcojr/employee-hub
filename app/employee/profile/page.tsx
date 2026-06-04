@@ -2,19 +2,42 @@
 
 import { useState } from 'react';
 import { User, Mail, Phone, Save, Camera } from 'lucide-react';
-import { useAppSelector } from '@/lib/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
+import { setGlobalLoading } from '@/lib/store/uiSlice';
 
 export default function EmployeeProfilePage() {
   const user = useAppSelector(s => s.auth.user);
+  const dispatch = useAppDispatch();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    setError('');
+    dispatch(setGlobalLoading(true));
+    try {
+      const res = await fetch('/api/employee/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save');
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSaving(false);
+      dispatch(setGlobalLoading(false));
+    }
   };
 
   return (
@@ -60,9 +83,16 @@ export default function EmployeeProfilePage() {
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-md text-xs outline-none focus:border-editorial-wine focus:ring-1 focus:ring-editorial-wine text-stone-900" />
               </div>
             </div>
-            <button type="submit" className="px-5 py-2.5 bg-editorial-wine text-white rounded-md text-xs font-bold hover:bg-stone-900 transition-colors flex items-center gap-2">
+            {error && (
+              <p className="text-xs text-red-600">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2.5 bg-editorial-wine text-white rounded-md text-xs font-bold hover:bg-stone-900 transition-colors flex items-center gap-2 disabled:opacity-60"
+            >
               <Save className="w-3.5 h-3.5" />
-              <span>{saved ? 'Saved!' : 'Save Changes'}</span>
+              <span>{saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}</span>
             </button>
           </form>
         </div>

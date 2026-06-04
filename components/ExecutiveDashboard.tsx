@@ -1,14 +1,78 @@
 'use client';
 
-import React, { useState } from 'react';
-import { TrendingUp, AlertTriangle, Users, BadgeCheck, ChevronRight, Sparkles, Plus, RefreshCw } from 'lucide-react';
-import { useApp } from '@/lib/app-context';
-import { EXECUTIVE_PULSE_TILES } from '@/lib/data';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, AlertTriangle, Users, BadgeCheck, ChevronRight, Sparkles, Plus, RefreshCw, Loader2 } from 'lucide-react';
+
+const EXECUTIVE_PULSE_TILES = [
+  {
+    id: 'pulse-1',
+    category: 'Development',
+    timeElapsed: '2h 45m elapsed',
+    title: 'Refactoring Auth Middleware for Multi-Tenancy',
+    teamMember: 'Alex Murphy',
+    avatar: '',
+    iconType: 'bolt'
+  },
+  {
+    id: 'pulse-2',
+    category: 'Strategy',
+    timeElapsed: '0h 18m elapsed',
+    title: 'Drafting Q4 Budget Allocation Proposal',
+    teamMember: 'Sarah Chen',
+    avatar: '',
+    iconType: 'edit_note'
+  },
+  {
+    id: 'pulse-3',
+    category: 'Operations',
+    timeElapsed: '5h 12m elapsed',
+    title: 'Vendor Contract Review: AWS Enterprise Support',
+    teamMember: 'David Lowe',
+    avatar: '',
+    iconType: 'description'
+  },
+  {
+    id: 'pulse-4',
+    category: 'Design',
+    timeElapsed: '1h 04m elapsed',
+    title: 'Design Audit: Mobile Dashboard Responsive States',
+    teamMember: 'Elena Park',
+    avatar: '',
+    iconType: 'palette'
+  }
+];
+
+interface ApiProject {
+  id: string;
+  name: string;
+  status: string;
+  _count: { members: number };
+  tokenCounts: { open: number; in_progress: number; done: number };
+}
+
+interface DashboardData {
+  totalProjects: number;
+  totalMembers: number;
+  activeTokens: number;
+  completedTokens: number;
+  projects: ApiProject[];
+}
 
 export default function ExecutiveDashboard() {
-  const { projects, searchQuery } = useApp();
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [reportState, setReportState] = useState<'idle' | 'generating' | 'done'>('idle');
   const [pulseList, setPulseList] = useState(EXECUTIVE_PULSE_TILES);
+
+  useEffect(() => {
+    fetch('/api/executive/dashboard')
+      .then((res) => res.json())
+      .then((data: DashboardData) => {
+        setDashboardData(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   const handleGenerateReport = () => {
     setReportState('generating');
@@ -33,10 +97,46 @@ export default function ExecutiveDashboard() {
     setPulseList((prev) => [newPulseItem, ...prev]);
   };
 
-  const executiveProjects = projects.filter(p => {
-    const query = searchQuery.toLowerCase();
-    return p.name.toLowerCase().includes(query) || p.description.toLowerCase().includes(query);
-  });
+  const getProjectProgress = (p: ApiProject) => {
+    const total = p.tokenCounts.open + p.tokenCounts.in_progress + p.tokenCounts.done;
+    if (total === 0) return 0;
+    return Math.round((p.tokenCounts.done / total) * 100);
+  };
+
+  const getProjectBudget = (p: ApiProject) => {
+    const total = p.tokenCounts.open + p.tokenCounts.in_progress + p.tokenCounts.done;
+    return `$${(total * 0.2).toFixed(1)}M`;
+  };
+
+  const getProjectSpent = (p: ApiProject) => {
+    return `$${(p.tokenCounts.done * 0.2).toFixed(1)}M`;
+  };
+
+  const getProjectStatus = (p: ApiProject) => {
+    const total = p.tokenCounts.open + p.tokenCounts.in_progress + p.tokenCounts.done;
+    if (total === 0) return 'Optimal';
+    return p.tokenCounts.open / total > 0.3 ? 'At Risk' : 'Optimal';
+  };
+
+  const getDepartmentLabel = (id: string) => {
+    if (id === 'neptune-migration') return 'Financial Systems';
+    if (id === 'core-design-system') return 'Product Design';
+    return 'Tech Operations';
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300 font-sans text-stone-900 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2 text-stone-400">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm font-mono">Loading executive dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const projects = dashboardData?.projects || [];
+  const activeTokens = dashboardData?.activeTokens ?? 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-sans text-stone-900">
@@ -104,7 +204,7 @@ export default function ExecutiveDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {executiveProjects.map((p) => (
+                  {projects.map((p) => (
                     <tr key={p.id} className="hover:bg-stone-50/60 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
@@ -115,26 +215,26 @@ export default function ExecutiveDashboard() {
                           </div>
                           <div>
                             <p className="font-serif font-bold text-xs text-stone-900 leading-snug">{p.name}</p>
-                            <p className="text-[9px] font-mono text-stone-400 mt-0.5 uppercase tracking-wide">{p.id === 'neptune-migration' ? 'Financial Systems' : p.id === 'core-design-system' ? 'Product Design' : 'Tech Operations'}</p>
+                            <p className="text-[9px] font-mono text-stone-400 mt-0.5 uppercase tracking-wide">{getDepartmentLabel(p.id)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${p.status === 'At Risk' ? 'bg-editorial-gold' : 'bg-emerald-600 animate-pulse'}`}></span>
-                          <span className={`text-[9px] font-bold uppercase tracking-widest ${p.status === 'At Risk' ? 'text-editorial-gold' : 'text-emerald-700'}`}>{p.status === 'At Risk' ? 'At Risk' : 'Optimal'}</span>
+                          <span className={`w-2 h-2 rounded-full ${getProjectStatus(p) === 'At Risk' ? 'bg-editorial-gold' : 'bg-emerald-600 animate-pulse'}`}></span>
+                          <span className={`text-[9px] font-bold uppercase tracking-widest ${getProjectStatus(p) === 'At Risk' ? 'text-editorial-gold' : 'text-emerald-700'}`}>{getProjectStatus(p) === 'At Risk' ? 'At Risk' : 'Optimal'}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="font-bold text-xs">{p.budget} / {p.spent}</p>
-                        <p className="text-[9px] font-mono text-stone-400 uppercase tracking-tight mt-0.5">{p.status === 'At Risk' ? 'Critical Burndown' : 'Standard CapEx'}</p>
+                        <p className="font-bold text-xs">{getProjectBudget(p)} / {getProjectSpent(p)}</p>
+                        <p className="text-[9px] font-mono text-stone-400 uppercase tracking-tight mt-0.5">{getProjectStatus(p) === 'At Risk' ? 'Critical Burndown' : 'Standard CapEx'}</p>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2 max-w-[120px]">
                           <div className="flex-1 h-1 bg-stone-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-editorial-wine rounded-full" style={{ width: `${p.progress}%` }}></div>
+                            <div className="h-full bg-editorial-wine rounded-full" style={{ width: `${getProjectProgress(p)}%` }}></div>
                           </div>
-                          <span className="font-bold text-[10px] text-stone-500 font-mono">{p.progress}%</span>
+                          <span className="font-bold text-[10px] text-stone-500 font-mono">{getProjectProgress(p)}%</span>
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right">
@@ -212,7 +312,7 @@ export default function ExecutiveDashboard() {
                 <h2 className="text-[10px] font-extrabold uppercase tracking-widest">Active Dispatch Stream</h2>
                 <p className="text-[8px] font-bold text-emerald-800 uppercase flex items-center gap-1 mt-0.5 tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                  42 Operations Real-time
+                  {activeTokens} Operations Real-time
                 </p>
               </div>
             </div>
